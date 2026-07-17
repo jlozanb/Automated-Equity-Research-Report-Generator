@@ -56,9 +56,19 @@ The objective of this project was to develop an automated and reproducible workf
 ## Repository Contents
 
 ```
-├── README.md
-├── BAC_BankOfAmerica_Report.pdf
-└── Report_Generation.Rmd
+## Repository Contents
+├── App
+│ ├── app.R
+│ └── Live Demo Link
+│
+├── Reports
+│ ├── BAC_BankOfAmerica_Equity_Report.pdf
+│ └── KO_CocaCola_Equity_Report.pdf
+│
+├── RStudio
+│ └── Report_Generator.Rmd
+│
+└── README.md
 ```
 
 ## Author
