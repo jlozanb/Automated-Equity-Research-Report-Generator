@@ -1,0 +1,1848 @@
+---
+output:
+  pdf_document:
+    latex_engine: xelatex
+header-includes:
+  - "\\usepackage{fancyhdr}"
+  - "\\usepackage{graphicx}"
+  - "\\usepackage{mdframed}"
+  - "\\usepackage{xcolor}"
+  - "\\usepackage[default]{opensans}"
+  - "\\pagestyle{fancy}"
+  - "\\fancyhf{}"
+  - "\\fancyhead[C]{\\includegraphics[width=5cm]{C:/Users/Jorge Lozano/Pictures/Screenshots/LogoBullishReport - copia.png}\\\\\\rule{\\textwidth}{0.5pt}}"
+  - "\\fancyfoot[R]{\\rule{\\textwidth}{0.4pt}\\\\\\textcolor{blue!70!black}{\\url{https://twitter.com/bullishreports}}}"
+  - "\\fancyfoot[L]{\\rule{\\textwidth}{0.4pt}\\\\Bullish.Reports - Beta}"
+  - "\\fancyfoot[C]{\\rule{\\textwidth}{0.9pt}\\\\\\thepage}"
+  - "\\renewcommand{\\headrulewidth}{0pt}"
+  - "\\renewcommand{\\footrulewidth}{0pt}"
+  - "\\setlength{\\headheight}{25.07pt}"
+  - "\\addtolength{\\topmargin}{-12pt}"  
+geometry:
+  - a4paper
+  - left = 2 cm
+  - right = 2 cm
+  - top = 2.1 cm
+  - bottom = 2.1 cm
+---
+
+<!-- Input Ticker: -->
+```{r, echo = FALSE, warning = FALSE}
+    Ticker <- 'DIS' 
+```
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+  library(httr)
+  library(jsonlite)
+  library(tidyverse)
+  library(knitr)
+  library(kableExtra)
+  library(fmsb)     # Para visualización Radial C.I.S TTM 
+  library(quantmod) # Para gráfico
+
+  API_KEY <- "d2855b21641f2dff7fbee3b4ba44f47c"
+  params <- list(apikey = "d2855b21641f2dff7fbee3b4ba44f47c")
+
+  options(scipen = 999)
+  Ticker <- toupper(Ticker)
+```
+
+<!-- # 1. Scripts: -->
+
+  <!-- # 1.1. Overview: -->
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+  # 1. Overview:  
+  {
+  # I. Extracción Data: Outlook Metrics.
+  
+  # 1.1 Métricas de portada:
+
+    URL_Overview <-  paste0("https://financialmodelingprep.com/api/v4/company-outlook?symbol=", Ticker, "&apikey=", API_KEY) #Extraemos algunas métricas. Resto más abajo 1.5
+  
+      response <- httr::GET(URL_Overview)
+      Overview <- jsonlite::fromJSON(content(response, "text")) # class(Overview) = "list"
+  
+    metric.name <- Overview$profile[["companyName"]]    # Nombre Compañía
+    metric.index <- Overview$profile$exchangeShortName  # Nombre Índice
+    metric.image <- Overview$profile$image              # Extraemaos la imagen de empresa
+  
+  # 1.2 Stock Price y Volume
+    
+    URL_StockPrice <- paste0("https://financialmodelingprep.com/api/v3/quote-short/", Ticker, "?apikey=", API_KEY)
+  
+      response <- httr::GET(URL_StockPrice)
+      StockPrice <- jsonlite::fromJSON(content(response, "text"))
+  
+    Stock.Price <- StockPrice$price
+    Stock.Volume <- StockPrice$volume
+  
+  # 1.3 Price Change
+  
+    URL_PriceChange <- paste0("https://financialmodelingprep.com/api/v3/stock-price-change/", Ticker, "?apikey=", API_KEY)
+  
+      response <- httr::GET(URL_PriceChange)
+      Price.Change <- jsonlite::fromJSON(content(response, "text"))
+  
+    Price.Change.5d <- round(Price.Change[,3], 2)
+    Price.Change.ytd <- round(Price.Change[,4], 2)
+  
+  # 1.4 AltmanZ-Score & Piotroski-Score
+  
+    URL_Score <- paste0("https://financialmodelingprep.com/api/v4/score?symbol=", Ticker, "&apikey=", API_KEY)
+  
+      response <- httr::GET(URL_Score)
+      Score <- jsonlite::fromJSON(content(response, "text"))
+  
+    Z.Score <- round(Score$altmanZScore, 2) # Calificación Solvency 
+    Priotoski.Score <- round(Score$piotroskiScore, 2) # Calificación 'Value Investing' 
+  
+  # 1.5 Price Target Consensus
+  
+    URL_PriceTarget <- paste0("https://financialmodelingprep.com/api/v4/price-target-consensus?symbol=", Ticker, "&apikey=", API_KEY)
+  
+      response <- httr::GET(URL_PriceTarget)
+      PriceTarget <- jsonlite::fromJSON(content(response, "text"))
+  
+    TargetConsensus <- PriceTarget$targetConsensus 
+  
+    # Margen Seguridad: 
+      MargenSeguridad <- round(((TargetConsensus - Stock.Price) / Stock.Price) * 100, 2)
+  
+  # 1.6 Metrics Outlook. (Endpoint extraído en 1.1)
+  
+    # Extraer las métricas 'Overview'
+      metric.price <- Overview$profile$price
+      metric.beta <- Overview$profile$beta
+      metric.volAvg <- round((Overview$profile$volAvg)/1e6, 3) # En millones
+      metric.mktCap <- Overview$profile["mktCap"]
+      metric.lastDiv <- Overview$profile["lastDiv"]
+      metric.range <- Overview$profile["range"]
+      metric.change <- Overview$profile["changes"]
+      metric.sector <- Overview$profile$sector # Segunga forma extraer datos de una lista
+      metric.industry <- Overview$profile$industry
+      metric.website <- Overview$profile$website %>%  substr(13, nchar(.))
+      metric.description <- Overview$profile$description
+      metric.country <- Overview$profile$country
+      metric.employees <- Overview$profile$fullTimeEmployees
+      metric.ceo <- Overview$profile$ceo
+      metric.ipodate <- Overview$profile$ipoDate
+      metric.Per <- round(Overview$ratios$peRatioTTM, 2)
+      metric.roce <- round(Overview $ratios$returnOnCapitalEmployedTTM *100, 2)
+
+      
+  # 1.7 Earnings Estimates
+      
+    URL_EarningsCalendar <-  paste0("https://financialmodelingprep.com/api/v3/earning_calendar?apikey=", API_KEY)
+      
+      response <- httr::GET(URL_EarningsCalendar)
+      EarningsCalendar <- jsonlite::fromJSON(content(response, "text"))
+      
+    Earnings.Estimates <- EarningsCalendar %>% filter(symbol == Ticker)
+    Earnings.Estimates <- Earnings.Estimates[1, ]
+    Earnings.Estimates <- Earnings.Estimates[1,4]
+# Aquí se encuentran las variables de: earnings.date, estimates(eps y revenue) y los que se confirmarán en dicha fecha.
+}  
+```
+
+```{r Colores, echo=FALSE, warning=FALSE}
+# Paletas de Colores según Empresas: 
+  # Paleta General:
+    ColorPalette <- "Blues"  # Poner por Defecto. Muy acorde a marca
+    ColorTitulo <- "173, 216, 230"
+    # Blues: 
+      if(Ticker %in% c("PEP", "META", "INTC", "PG", "BAC")){
+        ColorPalette <- "Blues"
+        ColorTitulo <- "173, 216, 230"
+        }
+    # Naranjas:
+      if(Ticker %in% c("AMZN", "NET", "MA", "MCD")){
+        ColorPalette <- "YlOrBr"
+        ColorTitulo <- "250, 215, 160"
+        }
+    # Verdes:
+      if(Ticker %in% c("NVDA", "SBUX", "WING", "SPOT", "MNST")){
+        ColorPalette <- "Greens"
+        ColorTitulo <- "171, 235, 198"}
+    # Rojos:
+      if(Ticker %in% c("KO", "TSLA", "NFLX", "ORCL", "JNJ", "LLY",
+                     "ADBE", "DAL", "TSM")){
+        ColorPalette <- "Reds"
+        ColorTitulo <- "245, 183, 177"}
+    # Purples:
+      if(Ticker %in% c("NU", "DDOG", "ACN")){
+        ColorPalette <- "Purples"
+        ColorTitulo <- "215, 189, 226"}
+```
+  <!-- # 1.2. Financial Statement: -->
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+  # 2.Financial Statement: 
+  {  
+  # 2.1 Segments: 
+    {  
+      # I. Revenue:
+    
+        URL_Segment.Revenue <-  paste0("https://financialmodelingprep.com/api/v4/revenue-product-segmentation?symbol=", Ticker, "&structure=flat&apikey=", API_KEY)
+          
+          response <- httr::GET(URL_Segment.Revenue)
+          Segment.Revenue <- jsonlite::fromJSON(content(response, "text")) 
+      
+        Segment.Revenue <- as.list(Segment.Revenue)
+      
+      # Transformación de datos:     
+        if (length(Segment.Revenue) > 0){    
+    
+    # Extraemos los años que vamos a :
+    nombres_columnas <- names(Segment.Revenue[1:5])
+    años <- lapply(nombres_columnas, function(x) substr(x, 1, 4))
+    años <- años[!is.na(años)]
+    
+    ##length(años) 
+    
+    # Ajustamos los valores a Billones o Millones
+    BillorMillion <- if (Segment.Revenue[[1]][1,1] / 1e9 > 1){BillorMillion <- 1e9
+    } else {BillorMillion <- 1e6}
+    
+    # Crear una lista para almacenar las tablas
+    tabla_lista <- list()
+    
+    # Crear y almacenar las tablas en la lista
+    for (i in 1:length(años)) {
+      tabla <- Segment.Revenue[[i]] %>%
+        slice(i) %>%
+        t() %>%
+        {./ BillorMillion} %>%
+        round(2) %>%
+        as.data.frame() %>%
+        setNames(años[[i]])
+      
+      tabla <- data.frame(Name = rownames(tabla), tabla)
+      tabla_lista[[i]] <- tabla
+    }
+    
+    # Fusionar las tablas en una sola tabla
+    Segment.Revenue.Table <- tabla_lista[[1]]
+    for (i in 2:length(tabla_lista)) {
+      Segment.Revenue.Table <- merge(Segment.Revenue.Table, tabla_lista[[i]], by = "Name", all = TRUE)
+    }
+    # Comprobación y cambiamos los nombres
+    Segment.Revenue.Table[is.na(Segment.Revenue.Table)] <- 0
+    colnames(Segment.Revenue.Table)[-1] <- años
+    Segment.Revenue.Table <- Segment.Revenue.Table %>% select(Name, rev(names(.))) 
+    
+    Segment.Revenue.BillorMillion <- if (BillorMillion == 1e9) {("Data in Billions ($)")
+    } else {("Data in Millions ($)")}
+  } else {Segment.Revenue.BillorMillion <- ""} 
+        
+      # II. Geography:
+        
+        URL_Segment.Geo <-  paste0("https://financialmodelingprep.com/api/v4/revenue-geographic-segmentation?symbol=", Ticker, "&structure=flat&apikey=", API_KEY)
+      
+          response <- httr::GET(URL_Segment.Geo)
+          Segment.Geo <- jsonlite::fromJSON(content(response, "text")) 
+        
+        Segment.Geo <- as.list(Segment.Geo)
+          
+        # Transformación de datos:     
+          if (length(Segment.Geo) > 0){    
+            
+              # Extraemos los años que vamos a :
+                nombres_columnas <- names(Segment.Geo[1:5])
+                años <- lapply(nombres_columnas, function(x) substr(x, 1, 4))
+                años <- años[!is.na(años)]
+            
+                ##length(años) 
+            
+            # Ajustamos los valores a Billones o Millones
+              BillorMillion <- if (Segment.Geo[[1]][1,1] / 1e9 > 1){BillorMillion <- 1e9
+                               } else {BillorMillion <- 1e6}
+            
+            # Crear una lista para almacenar las tablas
+              tabla_lista <- list()
+            
+            # Crear y almacenar las tablas en la lista
+              for (i in 1:length(años)) {
+                tabla <- Segment.Geo[[i]] %>%
+                  slice(i) %>%
+                  t() %>%
+                  {./ BillorMillion} %>%
+                  round(2) %>%
+                  as.data.frame() %>%
+                  setNames(años[[i]])
+                
+                tabla <- data.frame(Name = rownames(tabla), tabla)
+                tabla_lista[[i]] <- tabla
+              }
+            
+            # Fusionar las tablas en una sola tabla
+              Segment.Geo.Table <- tabla_lista[[1]]
+              for (i in 2:length(tabla_lista)) {
+                Segment.Geo.Table <- merge(Segment.Geo.Table, tabla_lista[[i]], by = "Name", all = TRUE)
+              }
+            # Comprobación y cambiamos los nombres
+              Segment.Geo.Table[is.na(Segment.Geo.Table)] <- 0
+              colnames(Segment.Geo.Table)[-1] <- años
+              Segment.Geo.Table <- Segment.Geo.Table %>% select(Name, rev(names(.)))
+
+            Segment.Geo.BillorMillion <- if (BillorMillion == 1e9) {("Data in Billions ($)")
+                                             } else {("Data in Millions ($)")}
+                                             } else {Segment.Geo.BillorMillion <- ""} 
+          
+             
+          
+  }      
+  # 2.2 Financial Core
+    {
+    # 1. Income Statement: 
+      {
+      # 1.1 Income Statenent: 
+      {
+      Income.Anual <- Overview$financialsAnnual$income
+      
+      min_cols <- min(5, nrow(Income.Anual)) # Logica para encontrar el mínimo de columnas, de modo que serán 5 salvo cuando existan menos de 5.(PD: en realidad es num filas pro la posicion horizontal de como se muestran las columnas de Income.Anual, luego se han de trasnponer)
+      Income.Anual.Table <- as.data.frame(t(Income.Anual)) %>% select(1:min_cols) # Trasponemos y seleccionamos max 5 columnas
+      
+      Date.Income <- Income.Anual.Table[1,] %>% lapply(function(x) substr(x, 1, 4)) # Extraemos el año de cada columma 
+      colnames(Income.Anual.Table) <- Date.Income # Cambiamos los nombres de las columnas por los años extraidos en Date.Income
+      
+      # Link Oficial Sec: 
+        Income.finalLink <- Income.Anual[1,"finalLink"] # Es el mismo para Balance y CashFlow.
+
+            
+      BillorMillion <- if (as.numeric(Income.Anual.Table[9,1]) / 1e9 > 1){BillorMillion <- 1e9 # Es una buena práctica para entender si los datos son $Bn o $Mll
+      } else {BillorMillion <- 1e6}
+      
+      Income.Anual.Table <- Income.Anual.Table %>%  tibble::rownames_to_column(var = "Name") %>% # Convertimos Nombres de rowIndex en Columna
+                                filter(Name %in% c("revenue", "grossProfit", "incomeBeforeTax", "netIncome", "eps", "ebitda" )) %>% #Seleccionamos las variables que queremos 
+                                mutate(across(-1, as.numeric)) # Salvo la primera columna, convertir todo a numeric
+      
+      
+      max_eps <- max(abs(Income.Anual.Table[Income.Anual.Table$Name == "eps", -1])) # Esta lógica se hace para dividir debajo toda la tabla por BillorMillion salvo EPS.
+      Income.Anual.Table <- Income.Anual.Table %>%
+                                mutate(across(-Name, ~ ifelse(abs(.) > max_eps, . /BillorMillion, .)))#Descartando la columna Name, todo lo que sea superior al EPS se divide por BillorMillion, el resto se queda igual.
+      Income.Anual.Table <- Income.Anual.Table %>% mutate(across(-Name, ~ round(., 2))) # Salvo la columna Name, redondear todo a 2.
+      
+      Income.Anual.Table <- Income.Anual.Table %>% select(Name, rev(names(.))) # Invertimos orden de tabla para mayor legibilidad 
+      
+      # View(Income.Anual.Table)
+      }
+      # 1.2 Cambiamos nombre de Income Statement: 
+      {
+        # Seleccion Name de Metrics
+        Income_name <- c(
+          "revenue" = "Revenue",                
+          "grossProfit" = "Gross Profit",          
+          "ebitda" = "Ebitda",
+          "incomeBeforeTax" = "Ebit",         
+          "netIncome" = "Net Income",            
+          "eps" = "EPS" 
+        )
+        
+        # Actualizar los nombres de la columna 'Name' según nombre
+        Income.Anual.Table$Name <- Income_name[Income.Anual.Table$Name]
+      
+      # print(Income.Anual.Table$Name)
+      
+      if (BillorMillion == 1e6) {
+        BillorMillion.Income <- "Data in Millions $, except EPS)"
+      } else if (BillorMillion == 1e9) {
+        BillorMillion.Income <- "Data in Billions $, except EPS"
+      }
+        
+        
+        
+      }
+    }
+    # 2. Balance Sheet:
+      {
+        # 2.1 Balance Sheet:
+        {
+      Balance.Anual <- Overview$financialsAnnual$balance
+      
+      min_cols <- min(5, nrow(Balance.Anual)) # Logica para encontrar el mínimo de columnas, de modo que serán 5 salvo cuando existan menos de 5.(PD: en realidad es num filas pro la posicion horizontal de como se muestran las columnas de Income.Anual, luego se han de trasnponer)
+      Balance.Anual.Table <- as.data.frame(t(Balance.Anual)) %>% select(1:min_cols) # Trasponemos y seleccionamos max 5 columnas
+      
+      Date.Balance <- Balance.Anual.Table[1,] %>% lapply(function(x) substr(x, 1, 4)) # Extraemos el año de cada columma 
+      colnames(Balance.Anual.Table) <- Date.Balance # Cambiamos los nombres de las columnas por los años extraidos en Date.Income
+      
+      
+      BillorMillion <- if (as.numeric(Balance.Anual.Table[15,1]) / 1e9 > 1){BillorMillion <- 1e9 # Es una buena práctica para entender si los datos son $Bn o $Mll
+      } else {BillorMillion <- 1e6}
+      
+      Balance.Anual.Table <- Balance.Anual.Table %>%  tibble::rownames_to_column(var = "Name") %>% # Convertimos Nombres de rowIndex en Columna
+                                filter(Name %in% c("totalCurrentAssets", "totalNonCurrentAssets", "totalAssets", "totalCurrentLiabilities", "totalNonCurrentLiabilities",
+                                                    "totalLiabilities", "totalEquity", "totalDebt", "netDebt" )) %>% #Seleccionamos las variables que queremos 
+                                mutate(across(-1, as.numeric)) # Salvo la primera columna, convertir todo a numeric
+      
+      
+      Balance.Anual.Table <- Balance.Anual.Table %>%
+                                 mutate(across(-Name, ~ ./BillorMillion)) # Descartando la columna Name, todos los valores se dividen por BillorMillion
+      # Redondeamos a 2:
+      Balance.Anual.Table <- Balance.Anual.Table %>% mutate(across(-Name, ~ round(., 2))) # Salvo la columna Name, redondear todo a 2.
+      
+      Balance.Anual.Table <- Balance.Anual.Table %>% select(Name, rev(names(.))) # Invertimos orden de tabla para mayor legibilidad 
+      
+      # View(Balance.Anual.Table)
+      }
+        # 2.2 Cambiamos nombre a Balance Statement: 
+        {
+          # Seleccion Name de Metrics
+          Balance_name <- c(
+            "totalCurrentAssets" = "Current Assets",                
+            "totalNonCurrentAssets" = "Long-Term Assets",          
+            "totalAssets" = "Total Assets",
+            "totalCurrentLiabilities" = "Current Liabilities",         
+            "totalNonCurrentLiabilities" = "Long-Term Liabilities",            
+            "totalLiabilities" = "Total Liabilities",
+            "totalEquity" = "Total Equity",
+            "totalDebt" = "Total Debt",
+            "netDebt" = "Net Debt"
+          )
+          
+          # Actualizar los nombres de la columna 'Name' según nombre
+            Balance.Anual.Table$Name <- Balance_name[Balance.Anual.Table$Name]
+          
+            # print(Balance.Anual.Table$Name)
+            
+            if (BillorMillion == 1e6) {
+              BillorMillion.Balance <- "Data in Millions $"
+            } else if (BillorMillion == 1e9) {
+              BillorMillion.Balance <- "Data in Billions $"
+            }
+          
+          # print(BillorMillion.Balance)
+        }
+      }
+    # 3. Cash Flow:
+      {
+      # 3.1 Cash Flow:
+      {
+      Cash.Anual <- Overview$financialsAnnual$cash
+      
+      min_cols <- min(5, nrow(Cash.Anual)) # Logica para encontrar el mínimo de columnas, de modo que serán 5 salvo cuando existan menos de 5.(PD: en realidad es num filas pro la posicion horizontal de como se muestran las columnas de Income.Anual, luego se han de trasnponer)
+      Cash.Anual.Table <- as.data.frame(t(Cash.Anual)) %>% select(1:min_cols) # Trasponemos y seleccionamos max 5 columnas
+      
+      Date.Cash <- Cash.Anual.Table[1,] %>% lapply(function(x) substr(x, 1, 4)) # Extraemos el año de cada columma 
+      colnames(Cash.Anual.Table) <- Date.Cash # Cambiamos los nombres de las columnas por los años extraidos en Date.Income
+      
+      
+      BillorMillion <- if (abs(as.numeric(Cash.Anual.Table[9,1])) / 1e9 > 1){BillorMillion <- 1e9 # Es una buena práctica para entender si los datos son $Bn o $Mll
+      } else {BillorMillion <- 1e6}
+      
+      Cash.Anual.Table <- Cash.Anual.Table %>%  tibble::rownames_to_column(var = "Name") %>% # Convertimos Nombres de rowIndex en Columna
+        filter(Name %in% c("netCashProvidedByOperatingActivities", "netCashUsedForInvestingActivites", "netCashUsedProvidedByFinancingActivities","netChangeInCash", "freeCashFlow")) %>% #Seleccionamos las variables que queremos 
+        mutate(across(-1, as.numeric)) # Salvo la primera columna, convertir todo a numeric
+      
+      
+      Cash.Anual.Table <- Cash.Anual.Table %>%
+                              mutate(across(-Name, ~ ./BillorMillion)) # Descartando la columna Name, todos los valores se dividen por BillorMillion
+      # Redondeamos a 2:
+      Cash.Anual.Table <- Cash.Anual.Table %>% mutate(across(-Name, ~ round(., 2))) # Salvo la columna Name, redondear todo a 2.
+      
+      Cash.Anual.Table <- Cash.Anual.Table %>% select(Name, rev(names(.))) # Invertimos orden de tabla para mayor legibilidad 
+      
+      # View(Cash.Anual.Table)
+      }
+      # 3.2 Cambiamos nombre a CashFlow Statement: 
+      {
+        # Seleccion Name de Metrics
+        Cash_name <- c(
+          "netCashProvidedByOperatingActivities" = "Operating Cash Flow",                
+          "netCashUsedForInvestingActivites" = "Investing Cash Flow",          
+          "netCashUsedProvidedByFinancingActivities" = "Financing Cash Flow",
+          "netChangeInCash" = "Net Cash Flow",
+          "freeCashFlow" = "Free Cash Flow"
+        )
+        
+        # Actualizar los nombres de la columna 'Name' según nombre
+        Cash.Anual.Table$Name <- Cash_name[Cash.Anual.Table$Name]
+        
+        # print(Cash.Anual.Table$Name)
+        
+        if (BillorMillion == 1e6) {
+          BillorMillion.Cash <- "Data in Millions $"
+        } else if (BillorMillion == 1e9) {
+          BillorMillion.Cash <- "Data in Billions $"
+        }
+        
+        # print(BillorMillion.Balance)
+      }
+    }
+    }
+  }  
+```
+<!-- # 1.3. Ratios: -->
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+  # 3. Ratios:
+  {
+    # 3.1. Extracción Ratios Annual:
+    {
+  # I. Extracción y Carga de Ratios Anual :
+  {
+    # Ratios Company:
+    Ratios.Annual <-  paste0("https://financialmodelingprep.com/api/v3/ratios/", Ticker, "?period=annual&apikey=", API_KEY) #Extraemos algunas métricas. Resto más abajo 1.5
+    
+    response <- httr::GET(Ratios.Annual)
+    Ratios.Annual <- jsonlite::fromJSON(content(response, "text")) 
+    
+    # Ponemos date como encabezado  
+    Ratios.Annual <- as.data.frame(t(Ratios.Annual)) %>% select(1:min(5, ncol(.)))
+    nombres <- as.character(unlist(Ratios.Annual[3, ]))
+    names(Ratios.Annual) <- nombres
+    
+    # Ponemos el indice como variable Name:
+    Ratios.Annual <- Ratios.Annual[-c(1:4),]
+    Ratios.Annual <- Ratios.Annual %>% as.data.frame() %>% mutate(across(everything(), as.numeric)) %>% round(2)
+    Ratios.Annual <- rownames_to_column(Ratios.Annual, var = "Name")
+    # View(Ratios.Annual)
+    
+    # Agrupamos los Ratios por grupos:
+    # Recogida Ratios.Valuation:
+    Ratios.Annual.Valuation <- Ratios.Annual %>% filter(., Name %in% c("priceEarningsRatio", "priceEarningsToGrowthRatio", "priceToBookRatio",
+                                                                       "priceToSalesRatio", "priceToOperatingCashFlowsRatio"))
+    
+    # Recogida Ratios.Solvency:
+    Ratios.Annual.Solvency <- Ratios.Annual %>% filter(., Name %in% c("debtRatio", "debtEquityRatio", "totalDebtToCapitalization",
+                                                                       "interestCoverage", "cashFlowToDebtRatio"))
+    # Recogida Ratios.Profitability:
+    Ratios.Annual.Profitability <- Ratios.Annual %>% filter(., Name %in% c("returnOnAssets", "returnOnEquity", "returnOnCapitalEmployed",
+                                                                          "grossProfitMargin", "operatingProfitMargin", "netProfitMargin")) 
+    # Recogida Ratios.Liquidity:
+    Ratios.Annual.Liquidity <- Ratios.Annual %>% filter(., Name %in% c("currentRatio", "quickRatio", "cashRatio"))
+    
+    # Recogida Ratios.Eficiency:
+    Ratios.Annual.Eficiency <- Ratios.Annual %>% filter(., Name %in% c("inventoryTurnover", "assetTurnover", "receivablesTurnover" ))
+  }
+  
+  # II. Cambiamos el nombre de los Ratios para una mejor Apariencia:
+  {
+    # Ratios.Valuation:
+    {
+      # Seleccion Name de Ratios
+      ratios_name <- c(
+        "priceEarningsRatio" = "P/E",
+        "priceEarningsToGrowthRatio" = "PEG",
+        "priceToBookRatio" = "P/B",
+        "priceToSalesRatio" = "P/S",
+        "priceToOperatingCashFlowsRatio" = "P/CF"
+      )
+      
+      # Cambiar el nombre de la columna 'Name' a 'Ratio'
+      Ratios.Annual.Valuation <- Ratios.Annual.Valuation %>% rename(Ratio = Name)
+      
+      # Actualizar los nombres de la columna 'Ratio' según nombre
+      Ratios.Annual.Valuation$Ratio <- ratios_name[Ratios.Annual.Valuation$Ratio]
+      
+      # Cambiamos orden años:
+      Ratios.Annual.Valuation <- Ratios.Annual.Valuation %>%
+              select(Ratio, everything()) %>%
+              select(1, rev(seq_along(.)[-1]))
+    }
+    # print(Ratios.Annual.Valuation)
+    
+    # Ratios.Solvency:
+    {
+      # Seleccion Name de Ratios
+      ratios_name <- c(
+        "debtRatio" = "Debt Ratio",             
+        "debtEquityRatio" =  "Debt To Equity",         
+        "totalDebtToCapitalization" = "Debt To Capital",
+        "interestCoverage" = "Interest Coverage", 
+        "cashFlowToDebtRatio" = "CashFlow to Debt"
+      )
+      
+      # Cambiar el nombre de la columna 'Name' a 'Ratio'
+      Ratios.Annual.Solvency <- Ratios.Annual.Solvency %>% rename(Ratio = Name)
+      # Actualizar los nombres de la columna 'Ratio' según nombre
+      Ratios.Annual.Solvency$Ratio <- ratios_name[Ratios.Annual.Solvency$Ratio]
+      
+      # Cambiamos orden años:
+      Ratios.Annual.Solvency <- Ratios.Annual.Solvency %>%
+              select(Ratio, everything()) %>%
+              select(1, rev(seq_along(.)[-1]))
+
+    }
+    # print(Ratios.Annual.Solvency)  
+    
+    # Ratios.Profitability:
+    {
+      # Seleccion Name de Ratios
+      ratios_name <- c(
+        "grossProfitMargin" = "Gross Margin",   
+        "operatingProfitMargin" = "Operating Margin",
+        "netProfitMargin" = "Net Margin",        
+        "returnOnAssets" = "ROA",         
+        "returnOnEquity" = "ROE",         
+        "returnOnCapitalEmployed" = "ROCE"
+      )
+      
+      # Cambiar el nombre de la columna 'Name' a 'Ratio'
+      Ratios.Annual.Profitability <- Ratios.Annual.Profitability %>% rename(Ratio = Name)
+      # Actualizar los nombres de la columna 'Ratio' según nombre
+      Ratios.Annual.Profitability$Ratio <- ratios_name[Ratios.Annual.Profitability$Ratio]
+      # Cambiamos orden años:
+      Ratios.Annual.Profitability <- Ratios.Annual.Profitability %>%
+              select(Ratio, everything()) %>%
+              select(1, rev(seq_along(.)[-1])) %>%  mutate_at(vars(rev(seq_along(.)[-1])), function(x) format(round(as.numeric(x) * 100, 2), nsmall = 2))
+
+
+    }
+    # print(Ratios.Annual.Profitability)   
+    
+    # Ratios.Liquidity:
+    {
+      # Seleccion Name de Ratios
+      ratios_name <- c(
+        "currentRatio" = "Current Ratio",         
+        "quickRatio" = "Quick Turnover",
+        "cashRatio" = "Cash Ratio"  
+      )
+      
+      # Cambiar el nombre de la columna 'Name' a 'Ratio'
+      Ratios.Annual.Liquidity <- Ratios.Annual.Liquidity %>% rename(Ratio = Name)
+      # Actualizar los nombres de la columna 'Ratio' según nombre
+      Ratios.Annual.Liquidity$Ratio <- ratios_name[Ratios.Annual.Liquidity$Ratio]
+      # Cambiamos orden años:
+      Ratios.Annual.Liquidity <- Ratios.Annual.Liquidity %>%
+              select(Ratio, everything()) %>%
+              select(1, rev(seq_along(.)[-1]))
+
+    }
+    # print(Ratios.Annual.Liquidity) 
+    
+    # Ratios.Eficiency:
+    {
+      # Seleccion Name de Ratios
+      ratios_name <- c(
+        "inventoryTurnover" = "Inventory Turnover",
+        "assetTurnover" = "Asset Turnover",
+        "receivablesTurnover" = "Receivables Turnover"
+      )
+      
+      # Cambiar el nombre de la columna 'Name' a 'Ratio'
+      Ratios.Annual.Eficiency <- Ratios.Annual.Eficiency %>% rename(Ratio = Name)
+      # Actualizar los nombres de la columna 'Ratio' según nombre
+      Ratios.Annual.Eficiency$Ratio <- ratios_name[Ratios.Annual.Eficiency$Ratio]
+      # Cambiamos orden años:
+      Ratios.Annual.Eficiency <- Ratios.Annual.Eficiency %>%
+              select(Ratio, everything()) %>%
+              select(1, rev(seq_along(.)[-1]))
+
+    }
+    # print(Ratios.Annual.Eficiency) 
+    
+  }
+}
+    # 3.2. Extracción RatiosTTM C.I.S:
+    {
+      # I. Unimos tabla de SP500.List con RatiosTTM
+      {
+        # Lista de perfiles de empresas del SP500:
+        NYSE.list <- read.csv("https://financialmodelingprep.com/api/v4/profile/all?apikey=d2855b21641f2dff7fbee3b4ba44f47c")
+        
+        NYSE.list <- NYSE.list %>% filter(!sector == "" | !industry == "") %>% 
+          filter(exchange %in% c("NASDAQ Capital Market", 
+                                 "NASDAQ Global Market", 
+                                 "New York Stock Exchange", 
+                                 "New York Stock Exchange Arca", 
+                                 "NASDAQ Global Select", 
+                                 "American Stock Exchange")) %>%
+          select(symbol = Symbol, sector, industry, exchange)
+        
+        # Listado de empresas SP500:
+        # Modificaremos NYSE.list y añadiremos una nueva variable de "SP500 = T". Para hacer la media del sector de las compañías del SP500...  
+        # Extracción Listado SP500:
+        SP500.List <-  paste0("https://financialmodelingprep.com/api/v3/sp500_constituent?apikey=", API_KEY) #Extraemos algunas métricas. Resto más abajo 1.5
+        
+        response <- httr::GET(SP500.List)
+        
+        SP500.List <- jsonlite::fromJSON(content(response, "text")) # class(Overview) = "list"
+        
+        # Agregación Columna SP500
+        NYSE.list <- NYSE.list %>% mutate(SP500 = FALSE)
+        NYSE.list$SP500[NYSE.list$symbol %in% SP500.List$symbol] <- TRUE
+        
+        # Extraemos el sector e industria de la compañía para la comparativa de ratios:
+        metric.sector2 <- NYSE.list %>% filter(symbol == Ticker) %>% select(sector) %>% as.character(.)
+        metric.industry2 <- NYSE.list %>% filter(symbol == Ticker) %>% select(industry) %>% as.character(.)
+      }
+      # II. Clasificamos RatiosTTM por C.I.S:
+      {
+        # 1. RatiosTTM.Company:
+        {
+          RatiosTTM <- as.list(Overview$ratios)
+          RatiosTTM <- as.data.frame(RatiosTTM) %>% t()
+          
+          RatiosTTM <- data.frame(Name = rownames(RatiosTTM), Value = round(RatiosTTM,2))
+          row.names(RatiosTTM) <- NULL # Quitamos las filas del índice 
+          # RatiosTTM por Grupos. Company:
+          # Recogida Ratios.Valuation:
+          RatiosTTM.Company.Valuation <- RatiosTTM %>% filter(., Name %in% c("priceEarningsRatioTTM", "priceEarningsToGrowthRatioTTM", "priceToBookRatioTTM",
+                                                                             "priceToSalesRatioTTM", "priceToOperatingCashFlowsRatioTTM"))
+          # Recogida Ratios.Solvency:
+          RatiosTTM.Company.Solvency <- RatiosTTM %>% filter(., Name %in% c("debtRatioTTM", "debtEquityRatioTTM", "totalDebtToCapitalizationTTM",
+                                                                             "interestCoverageTTM", "cashFlowToDebtRatioTTM"))
+          # Recogida Ratios.Profitability:
+          RatiosTTM.Company.Profitability <- RatiosTTM %>% filter(., Name %in% c("returnOnAssetsTTM", "returnOnEquityTTM", "returnOnCapitalEmployedTTM",
+                                                                                "grossProfitMarginTTM", "operatingProfitMarginTTM", "netProfitMarginTTM"))
+          RatiosTTM.Company.Profitability <- RatiosTTM.Company.Profitability %>% mutate(Value = Value * 100)
+
+          # Recogida Ratios.Liquidity:
+          RatiosTTM.Company.Liquidity <- RatiosTTM %>% filter(., Name %in% c("currentRatioTTM", "quickRatioTTM", "cashRatioTTM"))
+          
+          # Recogida Ratios.Eficiency:
+          RatiosTTM.Company.Eficiency <- RatiosTTM %>% filter(., Name %in% c("inventoryTurnoverTTM", "assetTurnoverTTM", "receivablesTurnoverTTM"))
+          
+          # Ratios Comparativa:  
+          
+          # Extraemos los RatiosTTM de todas las empresas: 
+          SP.RatiosTTM <- read.csv("https://financialmodelingprep.com/api/v4/ratios-ttm-bulk?apikey=d2855b21641f2dff7fbee3b4ba44f47c")
+          
+          # Unimos ambas tablas 
+          SP.RatiosTTM <- merge(NYSE.list, SP.RatiosTTM, by = "symbol", all.x = FALSE) # Sólo se unen los coincidentes symbol a la tabla NYSE.List
+          
+          SP.RatiosTTM <- SP.RatiosTTM %>% mutate(across(6:(ncol(.)), ~ round(., 2)))
+          
+          SP.RatiosTTM.Sector <- SP.RatiosTTM %>% filter(., sector == metric.sector2 & SP500 == TRUE) 
+          SP.RatiosTTM.Industry <- SP.RatiosTTM %>% filter(., industry == metric.industry2 & SP500 == TRUE)
+        }
+        # 2. RatiosTTM.Sector:
+        {
+          # Recogida Ratios.Sector.Valuation:
+            RatiosTTM.Sector.Valuation <- SP.RatiosTTM.Sector %>%
+              summarise(across(c("priceEarningsRatioTTM", "priceEarningsToGrowthRatioTTM", "priceToBookRatioTTM", "priceToSalesRatioTTM", "priceToOperatingCashFlowsRatioTTM"), 
+                               ~ {
+                                 q <- quantile(., c(0.25, 0.75), na.rm = TRUE)
+                                 iqr <- q[2] - q[1]
+                                 lower_bound <- q[1] - 1.5 * iqr
+                                 upper_bound <- q[2] + 1.5 * iqr
+                                 filtered_values <- .[between(., lower_bound, upper_bound) | is.na(.)]
+                                 mean(filtered_values, na.rm = TRUE)
+                               })) %>% t()
+
+          
+          RatiosTTM.Sector.Valuation <- data.frame(Name = rownames(RatiosTTM.Sector.Valuation), Value = round(RatiosTTM.Sector.Valuation, 2))
+          row.names(RatiosTTM.Sector.Valuation) <- NULL 
+          # View(RatiosTTM.Sector.Valuation)
+          
+          # Recogida Ratios.Sector.Solvency:
+          RatiosTTM.Sector.Solvency <- SP.RatiosTTM.Sector %>%
+            summarise(across(c("debtRatioTTM", "debtEquityRatioTTM", "totalDebtToCapitalizationTTM", "interestCoverageTTM", "cashFlowToDebtRatioTTM"), 
+                             ~ {
+                               q <- quantile(., c(0.25, 0.75), na.rm = TRUE)
+                               iqr <- q[2] - q[1]
+                               lower_bound <- q[1] - 1.5 * iqr
+                               upper_bound <- q[2] + 1.5 * iqr
+                               filtered_values <- .[between(., lower_bound, upper_bound) | is.na(.)]
+                               mean(filtered_values, na.rm = TRUE)
+                             })) %>% t()
+          
+          RatiosTTM.Sector.Solvency <- data.frame(Name = rownames(RatiosTTM.Sector.Solvency), Value = round(RatiosTTM.Sector.Solvency, 2))
+          row.names(RatiosTTM.Sector.Solvency) <- NULL 
+          # View(RatiosTTM.Sector.Solvency)
+          
+          # Recogida Ratios.Sector.Profitability:
+          RatiosTTM.Sector.Profitability <- SP.RatiosTTM.Sector %>%
+            summarise(across(c("returnOnAssetsTTM", "returnOnEquityTTM", "returnOnCapitalEmployedTTM","grossProfitMarginTTM", "operatingProfitMarginTTM", "netProfitMarginTTM"), 
+                             ~ {
+                               q <- quantile(., c(0.25, 0.75), na.rm = TRUE)
+                               iqr <- q[2] - q[1]
+                               lower_bound <- q[1] - 1.5 * iqr
+                               upper_bound <- q[2] + 1.5 * iqr
+                               filtered_values <- .[between(., lower_bound, upper_bound) | is.na(.)]
+                               mean(filtered_values, na.rm = TRUE)
+                             })) %>% t()
+          
+          RatiosTTM.Sector.Profitability <- data.frame(Name = rownames(RatiosTTM.Sector.Profitability), Value = round(RatiosTTM.Sector.Profitability * 100, 2))
+          row.names(RatiosTTM.Sector.Profitability) <- NULL 
+          # View(RatiosTTM.Sector.Profitability)   
+          
+          # Recogida Ratios.Sector.Liquidity:
+          RatiosTTM.Sector.Liquidity <- SP.RatiosTTM.Sector %>%
+            summarise(across(c("currentRatioTTM", "quickRatioTTM", "cashRatioTTM"), 
+                             ~ {
+                               q <- quantile(., c(0.25, 0.75), na.rm = TRUE)
+                               iqr <- q[2] - q[1]
+                               lower_bound <- q[1] - 1.5 * iqr
+                               upper_bound <- q[2] + 1.5 * iqr
+                               filtered_values <- .[between(., lower_bound, upper_bound) | is.na(.)]
+                               mean(filtered_values, na.rm = TRUE)
+                             })) %>% t()
+          
+          RatiosTTM.Sector.Liquidity <- data.frame(Name = rownames(RatiosTTM.Sector.Liquidity), Value = round(RatiosTTM.Sector.Liquidity, 2))
+          row.names(RatiosTTM.Sector.Liquidity) <- NULL 
+          # View(RatiosTTM.Sector.Liquidity)   
+          
+          # Recogida Ratios.Sector.Eficiency:
+          RatiosTTM.Sector.Eficiency <- SP.RatiosTTM.Sector %>%
+            summarise(across(c("inventoryTurnoverTTM", "assetTurnoverTTM", "receivablesTurnoverTTM"), 
+                             ~ {
+                               q <- quantile(., c(0.25, 0.75), na.rm = TRUE)
+                               iqr <- q[2] - q[1]
+                               lower_bound <- q[1] - 1.5 * iqr
+                               upper_bound <- q[2] + 1.5 * iqr
+                               filtered_values <- .[between(., lower_bound, upper_bound) | is.na(.)]
+                               mean(filtered_values, na.rm = TRUE)
+                             })) %>% t()
+          
+          RatiosTTM.Sector.Eficiency <- data.frame(Name = rownames(RatiosTTM.Sector.Eficiency), Value = round(RatiosTTM.Sector.Eficiency, 2))
+          row.names(RatiosTTM.Sector.Eficiency) <- NULL 
+          # View(RatiosTTM.Sector.Eficiency)   
+        } 
+        # 3. RatiosTTM.Industry:
+        {
+          # Recogida Ratios.Industry.Valuation:
+          RatiosTTM.Industry.Valuation <- SP.RatiosTTM.Industry %>%
+            summarise(across(c("priceEarningsRatioTTM", "priceEarningsToGrowthRatioTTM", "priceToBookRatioTTM", "priceToSalesRatioTTM", "priceToOperatingCashFlowsRatioTTM"), 
+                             ~ {
+                               q <- quantile(., c(0.25, 0.75), na.rm = TRUE)
+                               iqr <- q[2] - q[1]
+                               lower_bound <- q[1] - 1.5 * iqr
+                               upper_bound <- q[2] + 1.5 * iqr
+                               filtered_values <- .[between(., lower_bound, upper_bound) | is.na(.)]
+                               mean(filtered_values, na.rm = TRUE)
+                             })) %>% t()
+          
+          RatiosTTM.Industry.Valuation <- data.frame(Name = rownames(RatiosTTM.Industry.Valuation), Value = round(RatiosTTM.Industry.Valuation, 2))
+          row.names(RatiosTTM.Industry.Valuation) <- NULL 
+          # View(RatiosTTM.Industry.Valuation)
+          
+          # Recogida Ratios.Industry.Solvency:
+          RatiosTTM.Industry.Solvency <- SP.RatiosTTM.Industry %>%
+            summarise(across(c("debtRatioTTM", "debtEquityRatioTTM", "totalDebtToCapitalizationTTM", "interestCoverageTTM", "cashFlowToDebtRatioTTM"), 
+                             ~ {
+                               q <- quantile(., c(0.25, 0.75), na.rm = TRUE)
+                               iqr <- q[2] - q[1]
+                               lower_bound <- q[1] - 1.5 * iqr
+                               upper_bound <- q[2] + 1.5 * iqr
+                               filtered_values <- .[between(., lower_bound, upper_bound) | is.na(.)]
+                               mean(filtered_values, na.rm = TRUE)
+                             })) %>% t()
+          
+          RatiosTTM.Industry.Solvency <- data.frame(Name = rownames(RatiosTTM.Industry.Solvency), Value = round(RatiosTTM.Industry.Solvency, 2))
+          row.names(RatiosTTM.Industry.Solvency) <- NULL 
+          # View(RatiosTTM.Industry.Solvency)
+          
+          # Recogida Ratios.Industry.Profitability:
+          RatiosTTM.Industry.Profitability <- SP.RatiosTTM.Industry %>%
+            summarise(across(c("returnOnAssetsTTM", "returnOnEquityTTM", "returnOnCapitalEmployedTTM",
+                               "grossProfitMarginTTM", "operatingProfitMarginTTM", "netProfitMarginTTM"), 
+                             ~ {
+                               q <- quantile(., c(0.25, 0.75), na.rm = TRUE)
+                               iqr <- q[2] - q[1]
+                               lower_bound <- q[1] - 1.5 * iqr
+                               upper_bound <- q[2] + 1.5 * iqr
+                               filtered_values <- .[between(., lower_bound, upper_bound) | is.na(.)]
+                               mean(filtered_values, na.rm = TRUE)
+                             })) %>% t()
+          
+          RatiosTTM.Industry.Profitability <- data.frame(Name = rownames(RatiosTTM.Industry.Profitability), Value = round(RatiosTTM.Industry.Profitability * 100, 2))
+          row.names(RatiosTTM.Industry.Profitability) <- NULL 
+          # View(RatiosTTM.Industry.Profitability)   
+          
+          # Recogida Ratios.Industry.Liquidity:
+          RatiosTTM.Industry.Liquidity <- SP.RatiosTTM.Industry %>%
+            summarise(across(c("currentRatioTTM", "quickRatioTTM", "cashRatioTTM"), 
+                             ~ {
+                               q <- quantile(., c(0.25, 0.75), na.rm = TRUE)
+                               iqr <- q[2] - q[1]
+                               lower_bound <- q[1] - 1.5 * iqr
+                               upper_bound <- q[2] + 1.5 * iqr
+                               filtered_values <- .[between(., lower_bound, upper_bound) | is.na(.)]
+                               mean(filtered_values, na.rm = TRUE)
+                             })) %>% t()
+          
+          RatiosTTM.Industry.Liquidity <- data.frame(Name = rownames(RatiosTTM.Industry.Liquidity), Value = round(RatiosTTM.Industry.Liquidity, 2))
+          row.names(RatiosTTM.Industry.Liquidity) <- NULL 
+          # View(RatiosTTM.Industry.Liquidity)   
+          
+          # Recogida Ratios.Setor.Eficiency:
+          RatiosTTM.Industry.Eficiency <- SP.RatiosTTM.Industry %>%
+            summarise(across(c("inventoryTurnoverTTM", "assetTurnoverTTM", "receivablesTurnoverTTM"), 
+                             ~ {
+                               q <- quantile(., c(0.25, 0.75), na.rm = TRUE)
+                               iqr <- q[2] - q[1]
+                               lower_bound <- q[1] - 1.5 * iqr
+                               upper_bound <- q[2] + 1.5 * iqr
+                               filtered_values <- .[between(., lower_bound, upper_bound) | is.na(.)]
+                               mean(filtered_values, na.rm = TRUE)
+                             })) %>% t()
+          
+          RatiosTTM.Industry.Eficiency <- data.frame(Name = rownames(RatiosTTM.Industry.Eficiency), Value = round(RatiosTTM.Industry.Eficiency, 2))
+          row.names(RatiosTTM.Industry.Eficiency) <- NULL 
+          # View(RatiosTTM.Industry.Eficiency)
+        }
+      }
+    }
+    # 3.3. Union RatiosTTM C.I.S
+    {
+      # I. Unir RatiosTTM Comoany, Industry y Sector:
+      
+      # RatiosTTM Valuation:
+      RatiosTTM.Valuation <- RatiosTTM.Company.Valuation %>% merge(RatiosTTM.Industry.Valuation, by = "Name") %>%
+        merge(RatiosTTM.Sector.Valuation, by = "Name") %>% 
+        rename(Company = Value.x, Industry = Value.y, Sector = Value)
+      
+      # RatiosTTM Solvency:
+      RatiosTTM.Solvency <- RatiosTTM.Company.Solvency %>% merge(RatiosTTM.Industry.Solvency, by = "Name") %>%
+        merge(RatiosTTM.Sector.Solvency, by = "Name") %>% 
+        rename(Company = Value.x, Industry = Value.y, Sector = Value)
+      # RatiosTTM Profitability:
+      RatiosTTM.Profitability <- RatiosTTM.Company.Profitability %>% merge(RatiosTTM.Industry.Profitability, by = "Name") %>%
+        merge(RatiosTTM.Sector.Profitability, by = "Name") %>% 
+        rename(Company = Value.x, Industry = Value.y, Sector = Value)
+      
+      # RatiosTTM Liquidity:
+      RatiosTTM.Liquidity <- RatiosTTM.Company.Liquidity %>% merge(RatiosTTM.Industry.Liquidity, by = "Name") %>%
+        merge(RatiosTTM.Sector.Liquidity, by = "Name") %>% 
+        rename(Company = Value.x, Industry = Value.y, Sector = Value)
+      
+      # RatiosTTM Eficiency:
+      RatiosTTM.Eficiency <- RatiosTTM.Company.Eficiency %>% merge(RatiosTTM.Industry.Eficiency, by = "Name") %>%
+        merge(RatiosTTM.Sector.Eficiency, by = "Name") %>% 
+        rename(Company = Value.x, Industry = Value.y, Sector = Value)
+      
+      # II. Cambiar nombre de ratios indénticos a Ratios.Annual:
+      # RatiosTTM.Valuation:
+      {
+        # Seleccion Name de Ratios
+        ratios_name <- c(
+          "priceEarningsRatioTTM" = "P/E",
+          "priceEarningsToGrowthRatioTTM" = "PEG",
+          "priceToBookRatioTTM" = "P/B",
+          "priceToSalesRatioTTM" = "P/S",
+          "priceToOperatingCashFlowsRatioTTM" = "P/CF"
+        )
+        
+        # Cambiar el nombre de la columna 'Name' a 'Ratio'
+        RatiosTTM.Valuation <- RatiosTTM.Valuation %>% rename(Ratio = Name)
+        
+        # Actualizar los nombres de la columna 'Ratio' según nombre
+        RatiosTTM.Valuation$Ratio <- ratios_name[RatiosTTM.Valuation$Ratio]
+        
+        # print(RatiosTTM.Valuation) 
+        }
+      # RatiosTTM.Solvency:
+      {
+        # Seleccion Name de Ratios
+        ratios_name <- c(
+          "debtRatioTTM" = "Debt Ratio",             
+          "debtEquityRatioTTM" =  "Debt To Equity",         
+          "totalDebtToCapitalizationTTM" = "Debt To Capital",
+          "interestCoverageTTM" = "Interest Coverage", 
+          "cashFlowToDebtRatioTTM" = "CashFlow to Debt"
+        )
+        
+        # Cambiar el nombre de la columna 'Name' a 'Ratio'
+        RatiosTTM.Solvency <- RatiosTTM.Solvency %>% rename(Ratio = Name)
+        
+        # Actualizar los nombres de la columna 'Ratio' según nombre
+        RatiosTTM.Solvency$Ratio <- ratios_name[RatiosTTM.Solvency$Ratio]
+        
+        # print(RatiosTTM.Solvency)
+      }
+      # RatiosTTM.Profitability:
+      {
+        # Seleccion Name de Ratios
+        ratios_name <- c(
+          "grossProfitMarginTTM" = "Gross Margin",   
+          "operatingProfitMarginTTM" = "Operating Margin",
+          "netProfitMarginTTM" = "Net Margin",        
+          "returnOnAssetsTTM" = "ROA",         
+          "returnOnEquityTTM" = "ROE",         
+          "returnOnCapitalEmployedTTM" = "ROCE"
+        )
+        
+        # Cambiar el nombre de la columna 'Name' a 'Ratio'
+        RatiosTTM.Profitability <- RatiosTTM.Profitability %>% rename(Ratio = Name)
+        
+        # Actualizar los nombres de la columna 'Ratio' según nombre
+        RatiosTTM.Profitability$Ratio <- ratios_name[RatiosTTM.Profitability$Ratio]
+        
+        # print(RatiosTTM.Profitability)
+      }
+      # RatiosTTM.Liquidity:
+      {
+        # Seleccion Name de Ratios
+        ratios_name <- c(
+          "currentRatioTTM" = "Current Ratio",         
+          "quickRatioTTM" = "Quick Turnover",
+          "cashRatioTTM" = "Cash Ratio"  
+        )
+        
+        # Cambiar el nombre de la columna 'Name' a 'Ratio'
+        RatiosTTM.Liquidity <- RatiosTTM.Liquidity %>% rename(Ratio = Name)
+        
+        # Actualizar los nombres de la columna 'Ratio' según nombre
+        RatiosTTM.Liquidity$Ratio <- ratios_name[RatiosTTM.Liquidity$Ratio]
+        
+        # print(RatiosTTM.Liquidity)
+      }
+      # RatiosTTM.Eficiency:
+      {
+        # Seleccion Name de Ratios
+        ratios_name <- c(
+          "inventoryTurnoverTTM" = "Inventory Turnover",
+          "assetTurnoverTTM" = "Asset Turnover",
+          "receivablesTurnoverTTM" = "Receivables Turnover"
+        )
+        
+        # Cambiar el nombre de la columna 'Name' a 'Ratio'
+        RatiosTTM.Eficiency <- RatiosTTM.Eficiency %>% rename(Ratio = Name)
+        
+        # Actualizar los nombres de la columna 'Ratio' según nombre
+        RatiosTTM.Eficiency$Ratio <- ratios_name[RatiosTTM.Eficiency$Ratio]
+        
+        # print(RatiosTTM.Eficiency)
+      }
+    }
+    # 3.4. Union Anual & RatiosTTM C.I.S + Final.Ratios
+    {
+      # I. Unimos Ratios.Annual con RatiosTTM para tener una tabla comparativa completa: 
+      
+        # Final Ratios Valuation:
+          Final.Ratios.Valuation <- merge(Ratios.Annual.Valuation, RatiosTTM.Valuation, by = "Ratio") 
+          # print(Final.Ratios.Valuation)
+      
+        # Final Ratios Solvency:
+          Final.Ratios.Solvency <- merge(Ratios.Annual.Solvency, RatiosTTM.Solvency, by = "Ratio") 
+          # print(Final.Ratios.Solvency)
+          
+        # Final Ratios Profitability:
+          Final.Ratios.Profitability <- merge(Ratios.Annual.Profitability, RatiosTTM.Profitability, by = "Ratio") 
+          # print(Final.Ratios.Profitability)
+          
+        # Final Ratios Liquidity:
+          Final.Ratios.Liquidity <- merge(Ratios.Annual.Liquidity, RatiosTTM.Liquidity, by = "Ratio") 
+          # print(Final.Ratios.Liquidity)
+          
+        # Final Ratios Eficiency:
+          Final.Ratios.Eficiency <- merge(Ratios.Annual.Eficiency, RatiosTTM.Eficiency, by = "Ratio") 
+          # print(Final.Ratios.Eficiency)
+      
+      # II. Unimos todos los df para posterior visualización por grupos de ratios:
+      
+        # Añadir Group: 
+          Final.Ratios.Valuation$Grupo <- "Valuation"
+          Final.Ratios.Solvency$Grupo <- "Solvency"
+          Final.Ratios.Profitability$Grupo <- "Profitability"
+          Final.Ratios.Liquidity$Grupo <- "Liquidity"
+          Final.Ratios.Eficiency$Grupo <- "Eficiency"
+      
+        # Unimos y creamos una tabla full ratios:
+          Final.Ratios.Full <- rbind(Final.Ratios.Valuation, Final.Ratios.Solvency, Final.Ratios.Profitability,
+                                     Final.Ratios.Liquidity, Final.Ratios.Eficiency)
+      
+          Final.Ratios.Full <- Final.Ratios.Full %>% arrange(Grupo, Ratio)
+          # print(Final.Ratios.Full)
+    }
+  }
+```
+<!-- # 1.4. Metrics: -->
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+  # 4. Metrics: 
+{
+  # I. Metrics Annual: 
+  {  
+    # Metrics Company:
+    Metrics.Annual <-  paste0("https://financialmodelingprep.com/api/v3/key-metrics/", Ticker, "?period=annual&apikey=", API_KEY) #Extraemos algunas métricas. Resto más abajo 1.5
+    
+      response <- httr::GET(Metrics.Annual)
+      Metrics.Annual <- jsonlite::fromJSON(content(response, "text")) 
+    
+    # Ponemos date como encabezado  
+    Metrics.Annual <- as.data.frame(t(Metrics.Annual)) %>% select(1:min(5, ncol(.)))
+    nombres <- as.character(unlist(Metrics.Annual[3, ]))
+    names(Metrics.Annual) <- nombres
+    
+    # Ponemos el indice como variable Name:
+    Metrics.Annual <- Metrics.Annual[-c(1:4),]
+    Metrics.Annual <- Metrics.Annual %>% as.data.frame() %>% mutate(across(everything(), as.numeric)) %>% round(2)
+    Metrics.Annual <- rownames_to_column(Metrics.Annual, var = "Name")
+    # View(Metrics.Annual)
+    
+    # Agrupamos los Metrics por grupos:
+    # Recogida Metrics.Valuation:
+    Metrics.Annual.Valuation <- Metrics.Annual %>% filter(., Name %in% c("marketCap", "enterpriseValue", "enterpriseValueOverEBITDA",
+                                                                         "evToFreeCashFlow", "earningsYield", "roic"))
+    
+    BillorMillion <- if (abs(as.numeric(Metrics.Annual.Valuation[1,2])) / 1e9 > 1){BillorMillion <- 1e9 # Es una buena práctica para entender si los datos son $Bn o $Mll
+    } else {BillorMillion <- 1e6}
+    
+    Metrics.Annual.Valuation <- Metrics.Annual.Valuation %>%
+                                  mutate(across(where(is.numeric), 
+                                                ~ ifelse(Name %in% c("marketCap", "enterpriseValue"), round(./BillorMillion, 2), .))) %>%
+                                  select(Name, rev(names(.)[-1]))
+      
+    if (BillorMillion == 1e6) {
+      BillorMillion.Metrics <- "MarketCap & enterpriseValue in Millions $"
+    } else if (BillorMillion == 1e9) {
+      BillorMillion.Metrics <- "MarketCap & enterpriseValue in Billions $"
+      }
+    
+  } 
+  # II. Cambiamos el nombre de los Metrics para una mejor Apariencia:
+  {
+    # Metrics.Valuation:
+    {
+      # Seleccion Name de Metrics
+      Metrics_name <- c(
+        "marketCap" = "MarketCap",                
+        "enterpriseValue" = "Enterprise Value",          
+        "enterpriseValueOverEBITDA" = "EV/EBITDA",
+        "evToFreeCashFlow" = "EV/FCF",         
+        "earningsYield" = "Earnings Yield",            
+        "roic" = "ROIC" 
+      )
+      
+      # Cambiar el nombre de la columna 'Name' a 'Ratio'
+      Metrics.Annual.Valuation <- Metrics.Annual.Valuation %>% rename(Metrics = Name)
+      
+      # Actualizar los nombres de la columna 'Ratio' según nombre
+      Metrics.Annual.Valuation$Metrics <- Metrics_name[Metrics.Annual.Valuation$Metrics]
+    }
+    # print(Metrics.Annual.Valuation)
+    
+  }
+}
+```
+<!-- # 1.5. Dividends: -->
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+  # 5. Dividends:
+  {
+  # I. Extracción Historical Dividend Data:
+    Historical.Dividend <- paste0("https://financialmodelingprep.com/api/v3/historical-price-full/stock_dividend/", Ticker, "?limit=40&apikey=", API_KEY)    
+  
+      response <- httr::GET(Historical.Dividend)
+      Historical.Dividend <- jsonlite::fromJSON(content(response, "text"))
+  
+    Historical.Dividend <- Historical.Dividend$historical
+    if (exists("Historical.Dividend") && length(Historical.Dividend) > 0) {  
+  
+  # II. Dividend Metrics: "Yield, Payout, Growh, LastDividend, LastDividendDate" 
+  
+    # 1. Dividend Yield: 
+      DividendYield <- Overview$ratios$dividendYielTTM
+      DividendYield <- as.numeric(DividendYield)
+  
+    if (!is.numeric(DividendYield)) {
+      DividendYield <- as.numeric(as.character(DividendYield))
+    }
+  
+    DividendYield <- round(DividendYield * 100, 2)
+  
+    # 2.Payout:
+      DividendPayout <- Overview$ratios$payoutRatioTTM
+      DividendPayout <- as.numeric(DividendPayout)
+  
+      if (!is.numeric(DividendPayout)) {
+        DividendPayout <- as.numeric(as.character(payoutRatioTTM))
+      }
+  
+    DividendPayout <- round(DividendPayout * 100, 2)
+  
+  # 3. Growth Dividend:
+    div.growth <- as.character("n/a")
+    # Dividend.Growth <- Growth.Company %>% filter(Growth == "dividendsperShareGrowth") %>% select(G.Value)
+  
+  # 4. Last Dividend:
+    Last.Dividend <- Historical.Dividend[1,3]
+    Last.Dividend.Date <- Historical.Dividend[1,1]
+    
+  # print(Historical.Dividend)
+    # Convierte la columna 'historical.date' a tipo fecha si no lo está
+      Historical.Dividend$date <- as.Date(Historical.Dividend$date)
+    
+    # Crea una columna nueva 'Mes' que contenga el mes extraído de la fecha
+      Historical.Dividend$Mes <- as.numeric(format(Historical.Dividend$date, "%m"))
+      
+    # Filtra los datos para mostrar solo los dividendos en meses que sean múltiplos de 4
+      dividendos_meses_4 <- subset(Historical.Dividend, Mes %% 4 == 0)  
+    } else {DividendYield <- "n/a"
+            DividendPayout <- "n/a"
+            div.growth <- "n/a"
+            Last.Dividend.Date <- "n/a"
+            metric.lastDiv <- "n/a"}
+}
+```
+
+<!-- # 2. Tables & Charts: -->
+
+  <!-- # 2.1. Tables: -->
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+  # 1. Tablas:
+  {
+    # 1. Segments:
+    {
+    # 1.1. Segment.Revenue.Table: 
+    if (exists("Segment.Revenue.Table") && length(Segment.Revenue.Table) > 1) {      Segment.Revenue.Table.Kble <- Segment.Revenue.Table %>%
+                                    kbl(booktabs = TRUE, format = "latex") %>%
+                                    kable_styling(latex_options = c("striped", "hold_position"), full_width = T, font_size = 10) %>%
+                                    column_spec(1, width = "8cm")
+      } else {Segment.Revenue.Table.Kble <- "No Data"}
+      
+    # 1.2. Segment.Geo.Table:
+      if (exists("Segment.Geo.Table") && length(Segment.Geo.Table) > 0){ 
+      Segment.Geo.Table.Kble <- Segment.Geo.Table %>%
+                                  kbl(booktabs = TRUE, format = "latex") %>%
+                                  kable_styling(latex_options = c("striped", "hold_position"), full_width = T, font_size = 10) %>%
+                                  column_spec(1, width = "8cm")
+      } else {Segment.Geo.Table.Kble <- "No Data"}
+  }
+    # 2. Financial Statement: 
+    {
+    # 2.1. Income.Anual.Table:
+
+      Income.Anual.Table.Kble <- Income.Anual.Table %>%
+                                  kbl(booktabs = TRUE, format = "latex") %>%
+                                  kable_styling(latex_options = c("striped", "hold_position"), full_width = T, font_size = 10) %>% 
+                                  column_spec(1, width = "5cm")
+
+  
+    # 2.2. Balance.Anual.Table:
+
+      Balance.Anual.Table.Kble <- Balance.Anual.Table %>%
+                                    kbl(booktabs = TRUE, format = "latex") %>%
+                                    kable_styling(latex_options = c("striped", "hold_position"), full_width = T, font_size = 10) %>% 
+                                    column_spec(1, width = "5cm")
+
+    # 2.3. Cash.Anual.Table:
+
+      Cash.Anual.Table.Kble <- Cash.Anual.Table %>%
+                                kbl(booktabs = TRUE, format = "latex") %>%
+                                kable_styling(latex_options = c("striped", "hold_position"), full_width = TRUE, font_size = 10) %>%
+                                column_spec(1, width = "5cm") 
+  }
+    # 3. Ratios y Metricas:
+    {
+    # 3.1. Ratios: 
+    
+      Final.Ratios.Full.Kbl <- Final.Ratios.Full %>%
+                                select(-Grupo) %>%  
+                                kable("latex", booktabs = TRUE, align = c("l", rep("r", ncol(Final.Ratios.Full) - 1))) %>%
+                                kable_styling(latex_options = c("striped", "scale_down", "hold_position"), font_size = 10) %>%
+                                group_rows("Valuation", 18, 22) %>%
+                                group_rows("Solvency", 13, 17) %>% 
+                                group_rows("Profitability", 7, 12) %>%
+                                group_rows("Liquidity", 4, 6) %>% 
+                                group_rows("Eficiency", 1, 3) %>%
+                                row_spec(seq(2, nrow(Final.Ratios.Full)), extra_css = "height: 30px;")
+  
+    # 3.2. Metricas:
+      if (exists("Metrics.Annual.Valuation") && length(Metrics.Annual.Valuation) > 0){ 
+        
+      Metrics.Annual.Valuation.Kbl <- Metrics.Annual.Valuation %>%
+                        kbl(booktabs = TRUE, format = "latex") %>%
+                        kable_styling(latex_options = c("striped", "hold_position"),
+                                      full_width = TRUE, 
+                                      position = "center", 
+                                      font_size = 10) %>%
+                        column_spec(1, width = "6cm")
+
+      
+}}
+    # 4. Dividendos:
+    {
+    if (exists("Historical.Dividend") && length(Historical.Dividend) > 0) {
+      Historical.Dividend.Kble <- Historical.Dividend %>% select("date", "dividend", "paymentDate") %>% head(25)
+      
+      Historical.Dividend.Kble <- Historical.Dividend.Kble %>%
+                                    kbl(booktabs = TRUE, format = "latex") %>%
+                                    kable_styling(latex_options = c("striped", "scale_down", "hold_position"), full_width = F, font_size = 10) %>%
+                                    column_spec(1, width = "10cm")
+      } else {Historical.Dividend.Kble <- "No data"}
+    }
+  }
+```
+  <!-- # 2.1. Charts: -->
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+  # 2.Gráficos:
+  {
+    # 1. Segments:
+    {
+    # 1.1. Segment.Revenue.Table: 
+  
+      # print(Segment.Revenue.Table)
+    if (exists("Segment.Revenue.Table") && length(Segment.Revenue.Table) > 1) {  
+      
+      Segment.Revenue.Chart <- gather(Segment.Revenue.Table, Year, Revenue, -Name)
+  
+      Segment.Revenue.Chart <- ggplot(data = Segment.Revenue.Chart, aes(x = Year, y = Revenue, fill = Name)) +
+                                  geom_col(color = "black") +  scale_fill_brewer(palette = ColorPalette) +  # Paleta de colores
+                                  theme_minimal() + theme(legend.position = "left") + labs(x = NULL, fill = "Product / Service:")
+      } 
+
+    # 1.2. Segment.Geo.Table:
+    
+      # print(Segment.Geo.Table)
+    if (exists("Segment.Geo.Table") && length(Segment.Geo.Table) > 0) {        
+      
+      Segment.Geo.Chart <- gather(Segment.Geo.Table, Year, Revenue, -Name)
+    
+      Segment.Geo.Chart <- ggplot(data = Segment.Geo.Chart, aes(x = Year, y = Revenue, fill = Name)) +
+                              geom_col(color = "black") + 
+                              scale_fill_brewer(palette = ColorPalette) +
+                              theme_minimal() + theme(legend.position = "left") + labs(x = NULL, fill = "Region:")
+      } else {Segment.Geo.BillorMillion <- ""}
+  }
+    # 2. Financial Statement: 
+    {
+    # 2.1. Income.Anual.Chart:
+      {
+    # print(Income.Anual.Table)
+      Income.Anual.Table.Chart <- gather(Income.Anual.Table, Year, Value, -Name) %>% 
+      filter(Name %in% c("Revenue", "Ebitda", "EPS")) 
+  
+    Income.Anual.Table.Chart <- ggplot(Income.Anual.Table.Chart, aes(x = factor(Year), y = Value, fill = Name)) +
+                                  geom_col(position = "dodge", color = "black") +
+                                  theme_minimal() + scale_fill_brewer(palette = ColorPalette) + labs(fill = NULL, x = NULL, y = NULL) 
+    }
+    # 2.2. Balance.Anual.Chart:
+      {
+      # print(Balance.Anual.Table)
+  
+        # Assets Short Term:
+          {
+        Balance.Anual.Table.Chart.Short <- gather(Balance.Anual.Table, Year, Value, -Name) %>% 
+          filter(Name %in% c("Current Assets", "Current Liabilities")) %>% 
+          filter(Year == max(Year))
+  
+        Balance.Anual.Table.Chart.Short <- ggplot(Balance.Anual.Table.Chart.Short, aes(x = factor(Year), y = Value, fill = Name)) +
+                                              geom_col(position = "dodge", color = "black") +
+                                              labs(x = "Year", y = "Value", fill = NULL) +
+                                              theme_minimal() + scale_fill_brewer(palette = ColorPalette) + theme(legend.position = "bottom")
+      }
+        # Total Assets:
+          {
+        Balance.Anual.Table.Chart.Total <- gather(Balance.Anual.Table, Year, Value, -Name) %>% 
+                                            filter(Name %in% c("Total Assets", "Total Liabilities", "Total Equity")) %>% 
+                                            filter(Year == max(Year))
+        
+        Balance.Anual.Table.Chart.Total <- ggplot(Balance.Anual.Table.Chart.Total, aes(x = "", y = Value, fill = Name)) +
+                                            geom_bar(stat = "identity", width = 1, color = "black") +
+                                            coord_polar("y") +
+                                            labs(fill = NULL) +
+                                            theme_void() +
+                                            scale_fill_brewer(palette = ColorPalette) +
+                                            theme(legend.position = "bottom")
+      }
+                                  }
+    # 2.3. Cash.Anual.Chart:
+      {
+      # print(Cash.Anual.Table)
+      
+        # Cash.Anual.Bar:
+         {
+      Cash.Anual.Chart.Bar <- gather(Cash.Anual.Table, Year, Value, -Name) %>% 
+          filter(Name %in% c("Operating Cash Flow", "Investing Cash Flow",
+                             "Financing Cash Flow"))
+
+    
+      my_colors <- c("#A9A9A9", "#75C7FF", "#3498db", "#1F618D", "#2E86C1")
+    
+      Cash.Anual.Chart.Bar <- ggplot(Cash.Anual.Chart.Bar, aes(x = factor(Year), y = Value, fill = Name)) +
+                                  geom_col(position = "stack", color = "black") +
+                                  scale_fill_manual(values = my_colors) +
+                                  theme_minimal() + scale_fill_brewer(palette = ColorPalette) +
+                                  theme(legend.position = "left") + labs(fill = NULL, x = NULL, y = NULL) 
+                                            }
+        # Cash.Anual.Line: 
+          {
+          Cash.Anual.Chart.Line <- gather(Cash.Anual.Table, Year, Value, -Name) %>% 
+                                  filter(Name %in% c("Net Cash Flow", "Free Cash Flow"))
+
+          Cash.Anual.Chart.Line <- ggplot(Cash.Anual.Chart.Line,  aes(x = factor(Year), y = Value, color = Name, group = Name)) +
+                                            geom_line(size = 1) +  # Aumenta el grosor y la transparencia de las líneas
+                                            geom_point(size = 2.5, alpha = 1) +  # Aumenta el tamaño y la transparencia de los puntos
+                                            theme_minimal() + 
+                                            scale_color_brewer(palette = ColorPalette) +
+                                            theme(legend.position = "top") +
+                                            labs(x = NULL, fill = "Name", y = "CashFlow")
+          
+}
+      } 
+    }  
+    # 3. Ratios:
+    {
+    # 1. Transformación:
+      {
+      Final.Ratios.Full.Chart <- Final.Ratios.Full %>%
+        mutate(
+          Company = ifelse(Ratio %in% c("Current Ratio", "Cash Ratio"), -1 * Company, Company),
+          Industry = ifelse(Ratio %in% c("Current Ratio", "Cash Ratio"), -1 * Industry, Industry),
+          Sector = ifelse(Ratio %in% c("Current Ratio", "Cash Ratio"), -1 * Sector, Sector)
+        )
+      
+      # Crear el data frame con las columnas seleccionadas
+      Final.Ratios.Full.Chart <- Final.Ratios.Full %>%
+        select(Ratio, Company, Industry, Sector, Grupo)
+      # Seleccionar solo las columnas numéricas para normalizar
+      data_numeric <- Final.Ratios.Full.Chart[, c("Company", "Industry", "Sector")]
+      
+      # Normalizar los datos de cada fila entre 0 y 5
+      for (i in 1:nrow(Final.Ratios.Full.Chart)) {
+        row_min <- min(data_numeric[i, ])
+        row_max <- max(data_numeric[i, ])
+        Final.Ratios.Full[i, c("Company", "Industry", "Sector")] <- (data_numeric[i, ] - row_min) / (row_max - row_min) * 5
+      }
+      
+      # Mostrar el dataframe con los datos normalizados
+      # View(Final.Ratios.Full)
+      
+      resumen <- Final.Ratios.Full.Chart %>%
+        group_by(Grupo) %>%
+        summarize(
+          Company = mean(Company, na.rm = TRUE),
+          Industry = mean(Industry, na.rm = TRUE),
+          Sector = mean(Sector, na.rm = TRUE)
+        )
+      
+      # Mostrar el resumen
+        resumen <- resumen %>% mutate_if(is.numeric, ~ round(., 2))
+        resumen <- as.data.frame(resumen)
+      
+      
+      # Usar el dataframe 'resumen' para inicializar 'datos_transformados' y reemplazar valores
+        datos_transformados <- data.frame(
+          Grupo = resumen$Grupo,
+          Company = resumen$Company,
+          Industry = resumen$Industry,
+          Sector = resumen$Sector
+          )
+      
+      # Cambiar los nombres de las filas
+        rownames(datos_transformados) <- c("Max", "Min", "Company", "Industry", "Sector")
+      
+      # Mostrar los datos transformados
+        # print(datos_transformados)
+      # Crear un dataframe vacío para almacenar los datos transformados
+        datos_transformados <- matrix(0, nrow = 5, ncol = nrow(resumen))
+      
+      # Configurar la primera fila con el valor máximo (5)
+        datos_transformados[1, ] <- 5
+      
+      # Configurar la segunda fila con el valor mínimo (0)
+        datos_transformados[2, ] <- 0
+      
+      # Configurar la tercera fila con los datos de Company
+        datos_transformados[3, 1:5] <- resumen$Company
+      
+      # Configurar la cuarta fila con los datos de Industry
+        datos_transformados[4, 1:5] <- resumen$Industry
+      
+      # Configurar la quinta fila con los datos de Sector
+        datos_transformados[5, 1:5] <- resumen$Sector
+      
+      # Cambiar los nombres de las columnas y filas
+        colnames(datos_transformados) <- resumen$Grupo
+        rownames(datos_transformados) <- c("Max", "Min", "Company", "Industry", "Sector")
+      
+      # Mostrar los datos transformados
+        # print(datos_transformados)
+        datos_transformados <- as.data.frame(datos_transformados) %>% round(2)
+    }
+    
+    }
+    # 4. Metrics:
+    {
+      Metrics.Annual.Valuation.Chart <- gather(Metrics.Annual.Valuation, Year, Value, -Metrics) %>% 
+  filter(Metrics %in% c("EV/EBITDA", "EV/FCF")) 
+
+      Metrics.Annual.Valuation.Chart <- ggplot(Metrics.Annual.Valuation.Chart, aes(x = factor(Year), y = Value, color = Metrics, group = Metrics)) +
+  geom_line(size = 1) +  # Aumenta el grosor y la transparencia de las líneas
+  geom_point(size = 2.5, alpha = 1) +  # Aumenta el tamaño y la transparencia de los puntos
+  theme_minimal() + scale_color_brewer(palette = ColorPalette) + theme(legend.position = "top") + labs(x = NULL, fill = "Metrics", y = "Multiples")
+      
+    }
+    # 5. Dividends: 
+    {
+    if (exists("Historical.Dividend") && length(Historical.Dividend) > 0) {
+    Historical.Dividend.Chart <- ggplot(data = Historical.Dividend, aes(x = as.Date(date), y = adjDividend)) +
+      geom_line(color = "#5E4FA2", size = 1.5) +
+      geom_point(color = "darkblue", size = 2.5, shape = 21, fill = "white") +
+      geom_text(data = dividendos_meses_4,
+                aes(label = as.character(adjDividend), x = as.Date(date), y = adjDividend),
+                hjust = -0.1, vjust = 1.5, size = 3.5) +
+      labs(
+        x = "Date",
+        y = "Dividends",
+      ) +
+      theme_minimal() +
+      theme(
+        plot.title = element_text(size = 20, face = "bold", margin = margin(b = 15)),
+        axis.text = element_text(size = 12, color = "#333333"),
+        axis.title = element_text(size = 14, face = "bold", color = "#333333"),
+        axis.line = element_line(color = "#333333"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank(),
+        plot.background = element_rect(fill = "#F8F8F8", color = NA),
+        legend.position = "none",
+        plot.margin = margin(b = 2)  # Añade margen en la parte inferior para las etiquetas
+      )
+    } 
+ }
+  }
+```
+
+<!-- # 3. Comienzo PDF:-->
+\definecolor{customcolor}{RGB}{`r ColorTitulo`} 
+\colorlet{shadecolor}{customcolor}
+
+```{r ImagesURL, echo=FALSE, warning=FALSE}
+# logos dataframe (para visualización pdf):
+
+Logos <- data.frame(
+  Ticker = c("AAPL", "AMZN", "CAT", "NIO", "NIU", "NVDA", "JPM", "PLTR", "DDOG", "KO", "TSLA", "LLY"),
+  url.image = c(
+    "https://www.freepnglogos.com/uploads/apple-logo-png/apple-logo-png-dallas-shootings-don-add-are-speech-zones-used-4.png", # AAPL
+    "https://www.altoha.es/wp-content/uploads/2022/10/Amazon-Logo-PNG.png", # AMZN
+    "https://s7d2.scene7.com/is/image/Caterpillar/CM20200219-db34e-f70d2?fmt=png-alpha", # CAT
+    "https://vectorseek.com/wp-content/uploads/2023/04/NIO-Logo-Vector.jpg",
+    "https://vectorseek.com/wp-content/uploads/2023/08/Niu-Logo-Vector.svg-.png", # NIO
+    "https://logowik.com/content/uploads/images/229_nvidia_logo.jpg", #NVDA
+    "https://www.e2oespana.org/wp-content/uploads/2020/01/Logo-JPM.png",# JPM
+    "https://1000logos.net/wp-content/uploads/2022/08/Palantir-Logo-768x432.png",  #PLTR
+    "https://g.foolcdn.com/image/?url=https%3A//g.foolcdn.com/editorial/images/594406/ddog-logo.png&w=2000&op=resize",
+    "https://c4.wallpaperflare.com/wallpaper/615/214/535/red-logo-logo-coca-cola-wallpaper-preview.jpg", # KO
+    "https://i.ebayimg.com/images/g/iDcAAOSwo9VbDbfn/s-l400.jpg", #TSLA
+    "https://1000marcas.net/wp-content/uploads/2021/08/Lilly-Logo-768x432.png"
+  )
+)
+
+```
+
+```{r, , echo=FALSE, message=FALSE}
+# Comprobar si Ticker está en el DataFrame Logos
+if (Ticker %in% Logos$Ticker) {
+  # Si Ticker está en Logos, obtén la URL correspondiente
+  url.image <- Logos$url.image[Logos$Ticker == Ticker]
+  
+  # Carga la imagen desde la URL
+  library(magick)
+  logo <- image_read(url.image)
+} else {
+  # Si Ticker no está en Logos, carga la imagen desde metric.image
+  library(magick)
+  logo <- image_read(metric.image)
+}
+```
+
+\begin{center}
+\normalsize\textbf\today
+\end{center}
+
+\vspace{-0.35cm}
+\begin{center}
+\begin{minipage}[c]{0.5\textwidth}
+```{r logo, echo=FALSE, message=FALSE, out.width='40%', fig.align='center'}
+      logo
+```
+\end{minipage}
+\end{center}
+
+\begin{center}
+\Large\textbf{\detokenize{`r metric.name`}}
+\\ \vspace{0.35cm}
+\normalsize({`r metric.index`} , {`r metric.country`})
+\\ \vspace{0.35cm}
+\catcode`\&=12
+\normalsize\textbf{`r metric.sector`} | \textbf{`r metric.industry`}
+\catcode`\&=4
+\end{center}
+
+
+```{r, echo=FALSE, warning=FALSE}
+# Para Tabla Intro:
+
+# Color Z Score: 
+
+color.for.zscore <- function(Z.Score) {
+  if (!is.na(Z.Score) && Z.Score > 2.99) {
+    return("9DEDD3") # Verde clarito
+  } else if (!is.na(Z.Score) && Z.Score >= 1.81 && Z.Score <= 2.99) {
+    return("DDDD6C") # Amarillo clarito
+  } else {
+    return("E8A5A5") # Rojo clarito
+  }
+}
+
+Z.Score.color <- color.for.zscore(Z.Score)
+
+# Color Piotroski Score: 
+color.for.Priotoski <- function(Priotoski.Score) {
+  if (Priotoski.Score >= 7) {
+    return("9DEDD3") # Verde clarito
+  } else if (Priotoski.Score >= 4) {
+    return("DDDD6C") # Amarillo clarito
+  } else {
+    return("E8A5A5") # Rojo clarito
+  }
+}
+
+Priotoski.color <- color.for.Priotoski(Priotoski.Score)
+```
+
+\raggedright
+<!--### 1.1 Data Overview:-->
+\begin{mdframed}[backgroundcolor=shadecolor, linewidth=1.1pt]
+\normalsize
+\textbf{1.1 Data Overview:}
+\end{mdframed}
+
+
+\begin{mdframed}[linecolor=black!70, linewidth=1.1pt]
+\begin{center}
+\renewcommand{\arraystretch}{1.4}
+\setlength{\tabcolsep}{10pt}  % Ajusta este valor según lo que necesites
+\small % Reducir el tamaño de la fuente
+\begin{tabular}{ccccc}
+\textbf{\small Price:} & \textbf{\small Range:} & \textbf{\small Market Cap:} & \textbf{\small Beta:} & \textbf{\small Dividend:} \\
+\texttt{`r metric.price`\$ (`r metric.change`\%)} & \texttt{`r metric.range` \$} & \texttt{\$ `r as.numeric(metric.mktCap) / 1e9`} & \texttt{`r metric.beta`} & \texttt{`r metric.lastDiv` \% (`r metric.lastDiv` \$)} \\
+\midrule
+\textbf{\small Earning Date:} & \textbf{\small PER (TTM):} & \textbf{\small Volume Average:} & \textbf{\small Z-Score:} & \textbf{\small Priotoski Score:} \\
+\texttt{`r Earnings.Estimates[1]`} & \texttt{`r metric.Per`} & \texttt{`r metric.volAvg` \$} & \cellcolor[HTML]{`r Z.Score.color`} \texttt{`r Z.Score`} & \cellcolor[HTML]{`r Priotoski.color`} \texttt{`r Priotoski.Score`} \\
+\end{tabular}
+\end{center}
+\end{mdframed}
+
+
+<!--### 1.2 Compnay Profile:-->
+\begin{mdframed}[backgroundcolor=shadecolor, linewidth=1.1pt]
+\normalsize
+\textbf{1.2 Company Profile:}
+\end{mdframed}
+
+\begin{mdframed}[linecolor=black!70, linewidth=1.1pt]
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+shorten_text <- function(text) {
+  if (nchar(text) <= 400) {
+    return(text)
+  }
+
+  dot_positions <- gregexpr("\\.", text)[[1]]
+  
+  # Encuentra el primer punto después de la posición 500
+  end_position <- min(dot_positions[dot_positions > 400])
+
+  if (is.infinite(end_position)) { # Si no hay puntos después de la posición 500
+    return(text)
+  } else {
+    return(substr(text, 1, end_position))
+  }
+}
+
+metric.description <- shorten_text(metric.description)
+
+```
+\textsf{\detokenize{`r metric.description`}}
+
+\begin{figure}[H]
+\centering
+% Tabla (40% del ancho)
+\begin{minipage}[t]{0.4\textwidth}
+\renewcommand{\arraystretch}{1.3}  % Ajusta este valor según lo que necesites
+\begin{tabular}{ll}
+\toprule
+\textbf{\small Website:} & `r metric.website` \\
+\midrule
+\textbf{\small Employees:} & `r metric.employees` \\
+\midrule
+\textbf{\small IPO Date:} & `r metric.ipodate` \\
+\midrule
+\textbf{\small Price Target:} & `r TargetConsensus` \$ \\
+\midrule
+\textbf{\small ROCE(TTM):} & `r metric.roce` \%  \\
+\midrule
+\textbf{\small Earnings Estimates:} & `r Earnings.Estimates` \$ \\
+\bottomrule
+\end{tabular}
+\end{minipage}%
+\hfill % Espacio horizontal para separar
+% Gráfico (60% del ancho)
+\begin{minipage}{0.6\textwidth}
+\centering
+```{r, echo = F, warning = FALSE, out.width="100%"}
+fin <- Sys.Date() 
+inicio <- Sys.Date() - 15*30
+Chart <- getSymbols(paste0("", Ticker, ""), from = inicio, to = fin, auto.assign = FALSE)
+Chart <- to.weekly(Chart)
+
+chartSeries(Chart, type="bars", theme='white.mono')
+```
+\end{minipage}
+\end{figure}
+\end{mdframed}
+
+\newpage
+
+<!--### 2.1 Revenue By Product:-->
+\begin{mdframed}[backgroundcolor=shadecolor, linewidth=1.1pt]
+\normalsize
+\textbf{2.1 Revenue By Product:}
+\end{mdframed}
+
+\begin{mdframed}[linecolor=black!70, linewidth=1.1pt]
+```{r, echo = F, warning=FALSE, out.width = '100%', fig.height=2.2}
+if (exists("Segment.Revenue.Chart")) {
+  Segment.Revenue.Chart
+}
+```
+\\
+\scriptsize\detokenize{`r Segment.Revenue.BillorMillion`}
+`r Segment.Revenue.Table.Kble`
+\end{mdframed}
+
+
+<!--### 2.2 Revenue By Regions:-->
+\begin{mdframed}[backgroundcolor=shadecolor, linewidth=1.1pt]
+\normalsize
+\textbf{2.2 Revenue By Regions:}
+\end{mdframed}
+
+\begin{mdframed}[linecolor=black!70, linewidth=1.1pt]
+```{r echo=FALSE, warning=FALSE, out.width='100%', fig.height=2.2}
+if (exists("Segment.Geo.Chart")) {
+  Segment.Geo.Chart
+}
+```
+\scriptsize\detokenize{`r Segment.Geo.BillorMillion`}
+`r Segment.Geo.Table.Kble`
+\end{mdframed}
+
+
+\newpage
+
+<!--### 3.1 Income Statement:-->
+\begin{mdframed}[backgroundcolor=shadecolor, linewidth=1.1pt]
+\normalsize
+\textbf{3.1 Income Statement:}
+\end{mdframed}
+
+\begin{mdframed}[linecolor=black!70, linewidth=1.1pt]
+```{r, echo = F, warning=FALSE, out.width = '90%', fig.height=2.2}
+Income.Anual.Table.Chart
+```
+\\
+\scriptsize\detokenize{`r BillorMillion.Income`}
+`r Income.Anual.Table.Kble`
+\end{mdframed}
+
+<!--### 3.2 Balance Sheet:-->
+\begin{mdframed}[backgroundcolor=shadecolor, linewidth=1.1pt]
+\normalsize
+\textbf{3.2 Balance Sheet:}
+\end{mdframed}
+
+\begin{mdframed}[linecolor=black!70, linewidth=1.1pt]
+\begin{minipage}{0.49\textwidth}
+\centering
+Shorts Balance:
+```{r, echo = F, out.width = '100%', fig.height=4}
+Balance.Anual.Table.Chart.Short
+```
+\end{minipage}
+\begin{minipage}{0.49\textwidth}
+\centering
+Totals Balance:
+```{r, echo = F, out.width = '100%', fig.height=4}
+Balance.Anual.Table.Chart.Total
+```
+\end{minipage}
+
+\scriptsize\detokenize{`r BillorMillion.Balance`}
+`r Balance.Anual.Table.Kble`
+\end{mdframed}
+
+\newpage 
+
+<!--### 3.3 Cash Flow:-->
+\begin{mdframed}[backgroundcolor=shadecolor, linewidth=1.1pt]
+\normalsize
+\textbf{3.3 Cash Flow:}
+\end{mdframed}
+
+\begin{mdframed}[linecolor=black!70, linewidth=1.1pt]
+```{r, echo = F, out.width = '100%', fig.height=2.8}
+Cash.Anual.Chart.Bar
+```
+\scriptsize\detokenize{`r BillorMillion.Cash`}
+`r Cash.Anual.Table.Kble`
+```{r, echo = F, out.width = '100%', fig.height=2.8}
+Cash.Anual.Chart.Line
+```
+\end{mdframed}
+
+<!--### 3.4 Official Annual Report (SEC), 10-K:-->
+\begin{mdframed}[backgroundcolor=shadecolor, linewidth=1.1pt]
+\normalsize
+\textbf{3.4 Official Annual Report (SEC), 10-K:}
+\end{mdframed}
+
+\begin{mdframed}[linecolor=black!70, linewidth=1.1pt]
+\textbf{\small\detokenize{`r metric.name`} :} 
+\\ 
+\small\detokenize{`r Income.finalLink`}
+\end{mdframed}
+
+
+\newpage
+
+
+<!--### 4.1 Ratios:-->
+\begin{mdframed}[backgroundcolor=shadecolor, linewidth=1.1pt]
+\normalsize
+\textbf{\detokenize{4.1 Annual Ratios & Ratios TTM (Company, Industry, Sector):}}
+\end{mdframed}
+
+`r Final.Ratios.Full.Kbl`
+
+<!--### 4.2 Annual Metrics:-->
+\begin{mdframed}[backgroundcolor=shadecolor, linewidth=1.1pt]
+\normalsize
+\textbf{4.2 Annual Metrics:}
+\end{mdframed}
+
+\begin{mdframed}[linecolor=black!70, linewidth=1.1pt]
+\scriptsize\detokenize{*`r BillorMillion.Metrics`}
+`r Metrics.Annual.Valuation.Kbl`
+```{r echo=FALSE, warning=FALSE, out.width='100%', fig.height = 1.6}
+if (exists("Metrics.Annual.Valuation.Chart")) {
+  Metrics.Annual.Valuation.Chart
+}
+```
+\end{mdframed}
+
+\newpage
+
+<!--### 5.1 Dividends:-->
+\begin{mdframed}[backgroundcolor=shadecolor, linewidth=1.1pt]
+\normalsize
+\textbf{5.1 Dividends:}
+\end{mdframed}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\setlength{\tabcolsep}{12pt}
+\begin{tabular}{ccccc}
+\toprule
+\textbf{\small Div. Yield \%:} & \textbf{\small Div. Payout \%:} & \textbf{\small Div. Growth \%:} & \textbf{\small Last Dividend Date:} & \textbf{\small Last Dividend \$:} \\
+`r DividendYield ` \% & `r DividendPayout` \% & `r div.growth` \% & `r Last.Dividend.Date` & `r metric.lastDiv` \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+```{r, echo = F}
+Historical.Dividend.Kble
+```
+
+\begin{mdframed}[linecolor=shadecolor, linewidth=1.1pt]
+```{r, echo = F, out.width = '100%', fig.height=2.7}
+if (exists("Historical.Dividend.Chart")) {     
+  Historical.Dividend.Chart
+} else {Historical.Dividend.Chart <- "No Data"}
+```
+\end{mdframed}
+
+
+
