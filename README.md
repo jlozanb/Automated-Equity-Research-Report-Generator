@@ -6,7 +6,7 @@ End-to-end equity research reporting system developed to automate the generation
 
 The project retrieves financial data from external APIs using R, processes and analyses market information, and generates structured equity research reports using R Markdown and LaTeX.
 
-Additionally, **Beta BullishReports**, an interactive R Shiny application, was developed to provide users with a reporting interface including user registration, database integration, and automated report generation capabilities.
+Additionally, an interactive R Shiny application, was developed to provide users with a reporting interface including user registration, database integration, and automated report generation capabilities.
 
 ## Features
 
