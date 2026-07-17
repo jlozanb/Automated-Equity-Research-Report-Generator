@@ -32,7 +32,7 @@ Additionally, **Beta BullishReports**, an interactive R Shiny application, was d
 2. Data is processed and analysed using R.
 3. Financial metrics and insights are generated.
 4. The equity research report is created using R Markdown and compiled into PDF format through LaTeX.
-5. Users can interact with the reporting system through the Beta BullishReports R Shiny application.
+5. Users can interact with the reporting system through the R Shiny application.
 
 ## Live Demo
 
