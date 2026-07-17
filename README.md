@@ -4,22 +4,24 @@
 
 End-to-end equity research reporting system developed to automate the generation of financial research reports.
 
-The project retrieves financial data from external APIs using R, processes and analyses market information, and generates structured equity research reports in LaTeX format.
+The project retrieves financial data from external APIs using R, processes and analyses market information, and generates structured equity research reports using R Markdown and LaTeX.
 
-Additionally, an interactive R Shiny application was developed to provide users with a reporting interface, including user registration, database integration, and automated report generation capabilities.
+Additionally, **Beta BullishReports**, an interactive R Shiny application, was developed to provide users with a reporting interface including user registration, database integration, and automated report generation capabilities.
 
 ## Features
 
-- Financial data extraction from external APIs
-- Data processing and analysis using R
-- Automated equity research report generation
-- LaTeX-based professional report formatting
-- Interactive R Shiny application
+- Automated financial data extraction from APIs
+- Data processing and financial analysis using R
+- Reproducible report generation using R Markdown
+- Professional report formatting with LaTeX
+- Interactive R Shiny application (**Beta BullishReports**)
 - User registration and database integration
+- Automated equity research report generation
 
 ## Technologies
 
 - R
+- R Markdown
 - R Shiny
 - LaTeX
 - SQL Database
@@ -27,20 +29,38 @@ Additionally, an interactive R Shiny application was developed to provide users 
 
 ## Workflow
 
-1. Financial data is retrieved from external APIs.
+1. Financial market data is retrieved from external APIs.
 2. Data is processed and analysed using R.
 3. Financial metrics and insights are generated.
-4. The final equity research report is automatically produced using LaTeX.
-5. Users can interact with the reporting system through the R Shiny application.
+4. The equity research report is created using R Markdown and compiled into PDF format through LaTeX.
+5. Users can interact with the reporting system through the Beta BullishReports R Shiny application.
 
-## Report
+## Live Demo
 
-The repository includes an example of the generated equity research report in PDF format: BAC_BankOfAmerica_Report.pdf
+The deployed R Shiny application **Beta BullishReports** is available here:
+
+https://freebeta.shinyapps.io/Beta_BullishReports/
+
+## Example Report
+
+A generated equity research report example is included:
+
+- `BAC_BankOfAmerica_Report.pdf`
+
+This report demonstrates the automated generation of a structured equity research document based on financial data analysis.
 
 ## Project Purpose
 
-The objective of this project was to design an automated workflow capable of transforming raw financial data into structured equity research reports, reducing manual reporting tasks and improving reproducibility.
+The objective of this project was to develop an automated and reproducible workflow capable of transforming raw financial data into professional equity research reports, reducing manual reporting tasks and improving consistency.
+
+## Repository Contents
+
+```
+├── README.md
+├── BAC_BankOfAmerica_Report.pdf
+└── Report_Generation.Rmd
+```
 
 ## Author
 
-Jorge Lozano
+Your Name
