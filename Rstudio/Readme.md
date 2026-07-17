@@ -47,3 +47,17 @@ The generated equity reports include:
 ---
 
 ## Workflow
+```
+Financial APIs
+      ↓
+Data Extraction & Processing (R)
+      ↓
+Equity Report Generation (R Markdown)
+      ↓
+PDF Equity Research Report
+```
+
+
+
+
+
