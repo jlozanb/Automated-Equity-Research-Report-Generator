@@ -1,14 +1,5 @@
-🚀 App Demo: [Bullish Reports Shiny App](https://freebeta.shinyapps.io/Beta_BullishReports/)
+## 🚀 Interactive App
 
-## Demo
+Explore the deployed Shiny application:
 
-Try the interactive application:
-
-👉 [Bullish Reports - Shiny App](https://freebeta.shinyapps.io/Beta_BullishReports/)
-
-
-## Live Demo
-
-https://freebeta.shinyapps.io/Beta_BullishReports/
-
-[🚀 Bullish Reports Shiny App](https://freebeta.shinyapps.io/Beta_BullishReports/)
+👉 [Bullish Reports - Financial Report Generator](https://freebeta.shinyapps.io/Beta_BullishReports/)
