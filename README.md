@@ -34,9 +34,9 @@ Additionally, **Beta BullishReports**, an interactive R Shiny application, was d
 4. The equity research report is created using R Markdown and compiled into PDF format through LaTeX.
 5. Users can interact with the reporting system through the R Shiny application.
 
-## Live Demo
+## App Demo
 
-The deployed R Shiny application **Beta BullishReports** is available here:
+The deployed R Shiny application is available here:
 
 https://freebeta.shinyapps.io/Beta_BullishReports/
 
