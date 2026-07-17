@@ -58,15 +58,18 @@ The objective of this project was to develop an automated and reproducible workf
 ```
 ## Repository Contents
 ├── App
-│ ├── app.R
-│ └── Live Demo Link
+│ ├── App_Rshiny.R
+│ └── Readme.md (App Link)
 │
 ├── Reports
 │ ├── BAC_BankOfAmerica_Equity_Report.pdf
 │ └── KO_CocaCola_Equity_Report.pdf
+│ └── SBUX_Starbucks_Report.pdf
 │
 ├── RStudio
-│ └── Report_Generator.Rmd
+│ └── #1_Report_Generator.R
+│ └── #2_Report_Generator.Rmd
+│ └── Readme.md
 │
 └── README.md
 ```
