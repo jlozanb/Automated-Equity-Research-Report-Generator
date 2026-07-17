@@ -15,3 +15,4 @@ The application allows users to:
 - Enter a stock ticker
 - Generate an automated equity research report
 - Access the generated PDF report
+ 
