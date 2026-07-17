@@ -24,8 +24,7 @@ Additionally, **Beta BullishReports**, an interactive R Shiny application, was d
 - R Markdown
 - R Shiny
 - LaTeX
-- SQL Database
-- Financial APIs
+- Financial API; "Financial Modelling Prep"
 
 ## Workflow
 
