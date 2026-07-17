@@ -28,7 +28,7 @@ geometry:
 
 <!-- Input Ticker: -->
 ```{r, echo = FALSE, warning = FALSE}
-    Ticker <- 'DIS' 
+    Ticker <- 'BAC' 
 ```
 
 ```{r, echo = FALSE, warning = FALSE, message = FALSE}
