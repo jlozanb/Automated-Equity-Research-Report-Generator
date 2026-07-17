@@ -14,7 +14,7 @@ Additionally, an interactive R Shiny application, was developed to provide users
 - Data processing and financial analysis using R
 - Reproducible report generation using R Markdown
 - Professional report formatting with LaTeX
-- Interactive R Shiny application (**Beta BullishReports**)
+- Interactive R Shiny application
 - User registration and database integration
 - Automated equity research report generation
 
