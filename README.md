@@ -63,4 +63,4 @@ The objective of this project was to develop an automated and reproducible workf
 
 ## Author
 
-Your Name
+Jorge Lozano
