@@ -1,5 +1,11 @@
 # Automated Equity Research Report Generator
 
+![R](https://img.shields.io/badge/R-276DC3?style=flat&logo=r&logoColor=white)
+![R Markdown](https://img.shields.io/badge/R%20Markdown-276DC3?style=flat&logo=r&logoColor=white)
+![R Shiny](https://img.shields.io/badge/R%20Shiny-75AADB?style=flat)
+![LaTeX](https://img.shields.io/badge/LaTeX-008080?style=flat&logo=latex&logoColor=white)
+![Financial API](https://img.shields.io/badge/Financial%20API-6c757d?style=flat)
+
 ## Overview
 
 End-to-end equity research reporting system developed to automate the generation of financial research reports.
